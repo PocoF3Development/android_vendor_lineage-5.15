@@ -13,6 +13,7 @@ bootstrap_go_package {
     ],
     srcs: [
         "generator/generator.go",
+        "generator/kernel_headers.go",
         "generator/variables.go",
     ],
     pluginFor: ["soong_build"],
@@ -48,6 +49,10 @@ lineage_generator {
     dep_root: "$(TARGET_KERNEL_SOURCE)",
     dep_files: [
         "Makefile",
+        "scripts/Makefile*",
+        "scripts/headers_install.sh",
+        "scripts/unifdef.c",
+        "scripts/subarch.include",
         "include/**/*",
         "arch/$(KERNEL_ARCH)/include/**/*",
         "techpack/audio/include/**/*",

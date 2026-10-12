@@ -255,6 +255,28 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		return
 	}
 
+	nativeUapi := ctx.Config().VendorConfig("lineageVarsPlugin").String("TARGET_KERNEL_UAPI_AUTO_EXPORTS") == "true" && ctx.ModuleName() == "generated_kernel_includes"
+	var headerOutputs android.WritablePaths
+	if nativeUapi {
+		arch := lineageExpandVariables(ctx, "$(KERNEL_ARCH)")
+		prefix := lineageExpandVariables(ctx, "$(KERNEL_BUILD_OUT_PREFIX)")
+		names, err := kernelUapiOutputNames(ctx, depRoot, arch, prefix)
+		if err != nil {
+			ctx.ModuleErrorf("kernel UAPI outputs: %s", err)
+			return
+		}
+		for _, name := range names {
+			headerOutputs = append(headerOutputs, android.PathForModuleGen(ctx, name))
+		}
+		// Kbuild must write inside sbox, where declared outputs will be copied back.
+		actualGen := android.PathForModuleGen(ctx).String()
+		// Capture the sandbox directory before the legacy command changes to the top.
+		sandboxOut := "\"$kernel_uapi_out\""
+		rawCommand = strings.ReplaceAll(rawCommand, filepath.Join(prefix, actualGen), sandboxOut)
+		rawCommand = strings.ReplaceAll(rawCommand, actualGen, sandboxOut)
+		rawCommand = "kernel_uapi_out=\"$PWD/__SBOX_SANDBOX_DIR__/out\"; " + rawCommand
+	}
+
 	// Dummy output dep
 	dummyDep := android.PathForModuleGen(ctx, ".dummy_dep")
 
@@ -267,6 +289,7 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	rule.Command().
 		Text(rawCommand).
 		ImplicitOutput(dummyDep).
+		ImplicitOutputs(headerOutputs).
 		Implicits(g.inputDeps).
 		Implicits(g.implicitDeps)
 

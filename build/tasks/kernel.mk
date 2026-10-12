@@ -390,6 +390,16 @@ define build-image-kernel-modules-lineage
     mkdir -p $(4)/lib/modules/0.0/$(3)lib/modules$(6)
     cp $(1) $(4)/lib/modules/0.0/$(3)lib/modules$(6)
     if [ -n "$(8)" ]; then cp -r $(8) $(4)/lib/modules/0.0/; fi
+    # Keep built-in aliases and ordering available to depmod and kmod tools.
+    for METADATA in modules.builtin modules.builtin.modinfo; do \
+        if [ -f "$(KERNEL_OUT)/$$METADATA" ]; then \
+            cp "$(KERNEL_OUT)/$$METADATA" $(4)/lib/modules/0.0/; \
+            cp "$(KERNEL_OUT)/$$METADATA" $(2)/lib/modules$(6)/; \
+        fi; \
+    done
+    for MODULE in $(1); do \
+        echo "$(3)lib/modules$(6)/$$(basename $$MODULE)"; \
+    done > $(4)/lib/modules/0.0/modules.order
     $(DEPMOD) -ae -F $(KERNEL_OUT)/System.map -b $(4) 0.0 2>$(4)/depmod_stderr
     cat $(4)/depmod_stderr >&2
     if { grep -q "needs unknown symbol" $(4)/depmod_stderr; }; then \
@@ -422,6 +432,11 @@ define build-image-kernel-modules-lineage
         echo lib/modules$(6)/modules.dep >> "$(7)"; \
         if [ ! -z "$(5)" ]; then echo lib/modules$(6)/modules.load >> "$(7)"; fi; \
         echo lib/modules$(6)/modules.softdep >> "$(7)"; \
+        for METADATA in modules.builtin modules.builtin.modinfo; do \
+            if [ -f "$(2)/lib/modules$(6)/$$METADATA" ]; then \
+                echo lib/modules$(6)/$$METADATA >> "$(7)"; \
+            fi; \
+        done; \
         for MODULE in $(1); do \
             BASENAME=$$(basename $$MODULE); \
             echo lib/modules$(6)/"$$BASENAME" >> "$(7)"; \
